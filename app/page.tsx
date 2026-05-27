@@ -26,6 +26,102 @@ const TEMP_MIN = 0;
 const TEMP_MAX = 2;
 const TEMP_STEP = 0.05;
 
+/* ── File drop hook ── */
+function useFileDrop(currentValue: string, setValue: (v: string) => void) {
+  const [dragging, setDragging] = useState(false);
+  const [pendingText, setPendingText] = useState<string | null>(null);
+  const [pendingName, setPendingName] = useState<string>("");
+  const dragCounter = useRef(0);
+
+  function onDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragging(true);
+  }
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setDragging(false);
+    }
+  }
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    if (currentValue.trim().length > 0) {
+      setPendingText(text);
+      setPendingName(file.name);
+    } else {
+      setValue(text);
+    }
+  }
+  function confirmOverwrite() {
+    if (pendingText !== null) setValue(pendingText);
+    setPendingText(null);
+    setPendingName("");
+  }
+  function cancelOverwrite() {
+    setPendingText(null);
+    setPendingName("");
+  }
+
+  const dropProps = { onDragEnter, onDragOver, onDragLeave, onDrop };
+  return {
+    dragging,
+    dropProps,
+    pendingName,
+    showConfirm: pendingText !== null,
+    confirmOverwrite,
+    cancelOverwrite,
+  };
+}
+
+/* ── Confirm dialog component ── */
+function ConfirmDialog({
+  open,
+  fileName,
+  onYes,
+  onNo,
+}: {
+  open: boolean;
+  fileName: string;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="confirm-overlay">
+      <div className="confirm-card">
+        <div className="confirm-title">Overwrite content?</div>
+        <div className="confirm-body">
+          Dropping <strong>{fileName}</strong> will replace the existing text.
+          This cannot be undone.
+        </div>
+        <div className="confirm-actions">
+          <button onClick={onNo} className="confirm-btn confirm-btn-no">
+            No, keep it
+          </button>
+          <button onClick={onYes} className="confirm-btn confirm-btn-yes">
+            Yes, replace
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TestPage() {
   const [token, setToken] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState("");
@@ -55,6 +151,10 @@ export default function TestPage() {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [rawInputOpen, setRawInputOpen] = useState<boolean>(false);
   const [rawOutputOpen, setRawOutputOpen] = useState<boolean>(false);
+
+  /* File drop hooks */
+  const docDrop = useFileDrop(documentText, setDocumentText);
+  const promptDrop = useFileDrop(systemPrompt, setSystemPrompt);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -621,6 +721,78 @@ export default function TestPage() {
         .markdown-output a:hover { color: #d4c3ff; }
         .markdown-output > *:first-child { margin-top: 0; }
         .markdown-output > *:last-child { margin-bottom: 0; }
+
+        /* ── Drop zone ── */
+        .drop-zone {
+          border-radius: 11px;
+          transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        .drop-zone-active {
+          border-radius: 11px;
+          box-shadow: 0 0 0 3px rgba(139,92,255,0.35);
+        }
+        .drop-overlay {
+          position: absolute; inset: 0;
+          border-radius: 11px;
+          border: 2px dashed rgba(139,92,255,0.5);
+          background: rgba(139,92,255,0.06);
+          pointer-events: none;
+          z-index: 2;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .drop-overlay::after {
+          content: "Drop file to load";
+          font-size: 14px; font-weight: 600;
+          color: var(--accent);
+          background: var(--surface);
+          padding: 8px 18px;
+          border-radius: 8px;
+          border: 1px solid rgba(139,92,255,0.3);
+        }
+
+        /* ── Confirm dialog ── */
+        .confirm-overlay {
+          position: fixed; inset: 0;
+          z-index: 999;
+          background: rgba(0,0,0,0.55);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 20px;
+        }
+        .confirm-card {
+          background: var(--surface);
+          border: 1px solid var(--border-strong);
+          border-radius: 16px;
+          padding: 24px;
+          max-width: 400px;
+          width: 100%;
+        }
+        .confirm-title {
+          font-size: 17px; font-weight: 700;
+          color: var(--text);
+          margin-bottom: 8px;
+        }
+        .confirm-body {
+          font-size: 14px; line-height: 1.6;
+          color: var(--text-mute);
+          margin-bottom: 20px;
+        }
+        .confirm-body strong { color: var(--text); }
+        .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .confirm-btn {
+          padding: 9px 18px; border-radius: 9px;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          font-family: inherit; border: 1px solid var(--border); transition: background 0.12s;
+        }
+        .confirm-btn-no {
+          background: transparent; color: var(--text-mute);
+        }
+        .confirm-btn-no:hover { background: var(--surface-2); }
+        .confirm-btn-yes {
+          background: linear-gradient(180deg, #a481ff 0%, #7546e6 100%);
+          color: white; border-color: transparent;
+        }
+        .confirm-btn-yes:hover { filter: brightness(1.08); }
       `,
         }}
       />
@@ -753,18 +925,31 @@ export default function TestPage() {
               </div>
 
               {promptOpen && (
-                <textarea
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder={
-                    promptError
-                      ? `Failed to load prompt.md: ${promptError}`
-                      : "System prompt…"
-                  }
-                  style={S.promptArea}
-                  spellCheck={false}
-                />
+                <div
+                  {...promptDrop.dropProps}
+                  className={`drop-zone ${promptDrop.dragging ? "drop-zone-active" : ""}`}
+                  style={{ position: "relative" }}
+                >
+                  <textarea
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    placeholder={
+                      promptError
+                        ? `Failed to load prompt.md: ${promptError}`
+                        : "System prompt — drop a .md file or paste…"
+                    }
+                    style={S.promptArea}
+                    spellCheck={false}
+                  />
+                  {promptDrop.dragging && <div className="drop-overlay" />}
+                </div>
               )}
+              <ConfirmDialog
+                open={promptDrop.showConfirm}
+                fileName={promptDrop.pendingName}
+                onYes={promptDrop.confirmOverwrite}
+                onNo={promptDrop.cancelOverwrite}
+              />
             </section>
           </div>
 
@@ -799,14 +984,27 @@ export default function TestPage() {
                     label="document_text"
                     hint={`${documentText.length.toLocaleString()} chars`}
                   >
-                    <textarea
-                      className="field-input"
-                      value={documentText}
-                      onChange={(e) => setDocumentText(e.target.value)}
-                      placeholder="Paste .md, .txt, or extracted .pdf text here for now…"
-                      style={{ minHeight: 320, resize: "vertical" }}
-                    />
+                    <div
+                      {...docDrop.dropProps}
+                      className={`drop-zone ${docDrop.dragging ? "drop-zone-active" : ""}`}
+                      style={{ position: "relative" }}
+                    >
+                      <textarea
+                        className="field-input"
+                        value={documentText}
+                        onChange={(e) => setDocumentText(e.target.value)}
+                        placeholder="Paste or drop .md, .txt, or extracted .pdf text here…"
+                        style={{ minHeight: 320, resize: "vertical" }}
+                      />
+                      {docDrop.dragging && <div className="drop-overlay" />}
+                    </div>
                   </Field>
+                  <ConfirmDialog
+                    open={docDrop.showConfirm}
+                    fileName={docDrop.pendingName}
+                    onYes={docDrop.confirmOverwrite}
+                    onNo={docDrop.cancelOverwrite}
+                  />
                 </Group>
 
                 <div style={S.runFooter}>
