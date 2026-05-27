@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-from: #0E0820;
+  --bg-to: #160B30;
+
+  --accent: #8B5CFF;
+  --accent-hi: #A47BFF;
+  --accent-glow: rgba(139, 92, 255, 0.35);
+
+  --text: #FFFFFF;
+  --text-mute: rgba(255, 255, 255, 0.65);
+  --text-faint: rgba(255, 255, 255, 0.40);
+
+  --row-bg: rgba(255, 255, 255, 0.04);
+  --row-border: rgba(255, 255, 255, 0.08);
+  --row-bg-selected: rgba(139, 92, 255, 0.18);
+  --row-border-selected: rgba(139, 92, 255, 0.55);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #0E0820;
+  color: var(--text);
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: linear-gradient(180deg, var(--bg-from) 0%, var(--bg-to) 100%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+/* Phone-frame container so the layout reads as a mobile app on desktop too */
+.phone-frame {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Subtle ambient halo behind content */
+.phone-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 40% at 50% 0%, rgba(139, 92, 255, 0.16), transparent 70%),
+    radial-gradient(80% 60% at 100% 100%, rgba(139, 92, 255, 0.08), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Prevent overscroll bounce showing the body bg on iOS */
+@supports (-webkit-touch-callout: none) {
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* Hide scrollbar visuals while keeping scroll functional */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* CTA shell — sits at the bottom of a fixed-height Screen with scrollable content above */
+.cta-shell {
+  flex-shrink: 0;
+  padding: 14px 24px calc(20px + var(--safe-bottom)) 24px;
+  background: linear-gradient(180deg, transparent 0%, rgba(14, 8, 32, 0.92) 40%, rgba(14, 8, 32, 1) 100%);
+  position: relative;
+  z-index: 5;
+}
+
+/* Press feedback shorthand */
+.press {
+  transition: transform 100ms ease-out, opacity 100ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out;
+}
+.press:active {
+  transform: scale(0.98);
+}
+
+/* Headline emphasis (deeper accent, no italic, no glow) */
+.emph {
+  color: #7B4DEA;
+}
